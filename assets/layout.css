@@ -1,0 +1,21 @@
+.grid-three {
+    display: flex;
+    justify-content: center;
+
+}
+
+.big-metric {
+    flex: 1;
+    color: #ffff8d;
+    background-color: #333;
+    padding: 20px;
+    margin: 20px;
+}
+
+.footer {
+    position: absolute;
+    bottom: 20px;
+    text-align: left !important;
+    font-size: 0.6rem;
+    line-height: 1.4em
+}
