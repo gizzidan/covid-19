@@ -93,7 +93,7 @@ def sign(metric):
     elif confirmed_change == 0.0:
         sign = 'no change'
     else:
-        sign = "-"
+        sign = ""
     if sign == 'no change':
         output = "{}".format(sign)
     else:
