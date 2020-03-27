@@ -5,29 +5,63 @@ import dash_html_components as html
 import pandas as pd
 import numpy as np
 import datetime
+from datetime import date
+import requests
+import plotly
 
-external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-
-app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
-
+app = dash.Dash(__name__)
+app.title = 'COVID-19 NJ Dashboard'
 server = app.server
 
+app.index_string = '''
+<!DOCTYPE html>
+<html>
+    <head>
+        {%metas%}
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>{%title%}</title>
+        {%favicon%}
+        {%css%}
+    </head>
+    <body>
+        {%app_entry%}
+        <footer>
+            <div class='footer'>
+            Built by Dan Gizzi using Dash, a web application framework for Python. 
+            <br/>
+            Data from COVID-19 Data Repository by Johns Hopkins CSSE.        
+            </div>
+            {%config%}
+            {%scripts%}
+            {%renderer%}
+        </footer>
+    </body>
+</html>
+'''
+
 # master dataframe
-df = pd.read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports/03-24-2020.csv")
-init_date = datetime.date(2020, 3, 24).strftime("%m-%d-%y%y")
-df["Date"] = init_date
-df = df.dropna()
+start = date(2020, 1, 21)
+today = date.today()
+dt = today - start
+date_list = [today - datetime.timedelta(days=x) for x in range(dt.days)]
+date_list = [x.strftime("%m-%d-%y%y") for x in date_list]
+df = pd.DataFrame()
 
-prev_date = datetime.date(2020, 3, 24).strftime("%m-%d-%y%y")
-current_date = datetime.date(2020, 3, 25).strftime("%m-%d-%y%y")
+for x in date_list:
+    response = requests.get("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports/{}.csv".format(x))
+    if response.status_code == 404:
+        pass
+    else:
+        day = pd.read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports/{}.csv".format(x))
+        init_date = x
+        day["Date"] = init_date
+        df = df.append(day, sort=False)  
 
-new = pd.read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports/{}.csv".format(current_date))
-new["Date"] = current_date
-df = df.append(new)
-df = df.dropna()
+prev_date = datetime.date(2020, 3, 25).strftime("%m-%d-%y%y")
+current_date = datetime.date(2020, 3, 26).strftime("%m-%d-%y%y")
 
-prev_df = df[df["Date"].str.match(prev_date)]
-current_df = df[df["Date"].str.match(current_date)]
+prev_df = df[df["Date"].str.match(prev_date)].dropna(subset=['Province_State']).dropna(axis='columns')
+current_df = df[df["Date"].str.match(current_date)].dropna(subset=['Province_State']).dropna(axis='columns')
 
 # NJ
 prev_nj = prev_df[prev_df['Province_State'].str.match('New Jersey')]
@@ -39,22 +73,57 @@ total_recovered = np.sum(nj["Recovered"])
 total_active = np.sum(nj["Active"])
 
 
+def sign(metric):
+    output = ''
+    current = np.sum(nj[metric])
+    prev = np.sum(prev_nj[metric])
+    abs_prev = abs(prev) 
+    if abs_prev == 0:
+        confirmed_change = 0.0
+    else:
+        confirmed_change = np.round((np.true_divide((current - prev), abs_prev) * 100),2)
+    if confirmed_change > 0:
+        sign = "+"
+    elif confirmed_change == 0.0:
+        sign = 'no change'
+    else:
+        sign = "-"
+    if sign == 'no change':
+        output = "{}".format(sign)
+    else:
+        output = "{}{}%".format(sign,confirmed_change)
+    return output
+
+def color(pchange):
+    if pchange[0] == '+':
+        color = 'green'
+    elif pchange[0] == '-':
+        color = 'red'
+    else:
+        color = 'white'
+    return color
+
 colors = {
     'background': '#111111',
     'text': '#7FDBFF'
 }
+
+
+
 
 app.layout = html.Div(children=[
     html.H1(
         children='NJ COVID-19 Dashboard',
         style={
             'textAlign': 'center',
+            'paddingTop': '40px'
            
         }
     ),
     html.P(
         style={
             'textAlign': 'center',
+            'fontSize': '24px',
            
         },
         children="Daily updated dashboard of NJ COVID-19 Metrics. This is a work in progress..."
@@ -78,9 +147,14 @@ app.layout = html.Div(children=[
                         children=total_confirmed,
                        
                     ),
+                    html.H4(
+                        className=color(sign("Confirmed")),
+                        children=sign("Confirmed"),
+                       
+                    ),
                 ]
             ),
-            html.Div( 
+             html.Div( 
                 className="big-metric",
                 children=[
                     html.H3(
@@ -91,9 +165,14 @@ app.layout = html.Div(children=[
                         children=total_deaths,
                        
                     ),
+                    html.H4(
+                        className=color(sign("Deaths")),
+                        children=sign("Deaths"),
+                       
+                    ),
                 ]
             ),
-             html.Div( 
+            html.Div( 
                 className="big-metric",
                 children=[
                     html.H3(
@@ -104,22 +183,15 @@ app.layout = html.Div(children=[
                         children=total_recovered,
                        
                     ),
+                    html.H4(
+                        className=color(sign("Recovered")),
+                        children=sign("Recovered"),
+                       
+                    ),
                 ]
             )
         ]
     ),
-
-    html.Div(
-        className='footer',
-        children=[
-            'Built by Dan Gizzi using Dash, a web application framework for Python',
-            html.Br(),
-            'Data from COVID-19 Data Repository by Johns Hopkins CSSE'],
-        
-        style={
-        'textAlign': 'center',
-        'color': colors['text']
-    }),
 
 ])
 
