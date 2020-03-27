@@ -57,8 +57,14 @@ for x in date_list:
         day["Date"] = init_date
         df = df.append(day, sort=False)  
 
-prev_date = datetime.date(2020, 3, 25).strftime("%m-%d-%y%y")
-current_date = datetime.date(2020, 3, 26).strftime("%m-%d-%y%y")
+current_date = df.sort_values(by=['Date'], ascending=False)
+current_date = current_date['Date'].iloc[0]
+
+current_date = datetime.datetime.strptime(current_date,'%m-%d-%Y')
+prev_date = current_date - datetime.timedelta(days=1)
+
+current_date = current_date.strftime("%m-%d-%y%y")
+prev_date = prev_date.strftime("%m-%d-%y%y")
 
 prev_df = df[df["Date"].str.match(prev_date)].dropna(subset=['Province_State']).dropna(axis='columns')
 current_df = df[df["Date"].str.match(current_date)].dropna(subset=['Province_State']).dropna(axis='columns')
