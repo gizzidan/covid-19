@@ -5,8 +5,9 @@ import dash_html_components as html
 import pandas as pd
 import numpy as np
 import datetime
-from datetime import date
+from datetime import date, timedelta
 import requests
+import os.path
 import plotly
 
 app = dash.Dash(__name__)
@@ -21,7 +22,7 @@ app.index_string = '''
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>{%title%}</title>
         {%favicon%}
-        {%css%}
+        {%css%}   
     </head>
     <body>
         {%app_entry%}
@@ -40,22 +41,52 @@ app.index_string = '''
 '''
 
 # master dataframe
-start = date(2020, 1, 21)
-today = date.today()
-dt = today - start
-date_list = [today - datetime.timedelta(days=x) for x in range(dt.days)]
-date_list = [x.strftime("%m-%d-%y%y") for x in date_list]
-df = pd.DataFrame()
-
-for x in date_list:
-    response = requests.get("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports/{}.csv".format(x))
-    if response.status_code == 404:
+def load_csv(date_list, df):
+    for x in date_list:
+        li = []
+        li.append(df)
+        request = requests.get("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports/{}.csv".format(x))
+        if request.status_code == 404:
+            pass
+        else:
+            day = pd.read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports/{}.csv".format(x))
+            init_date = x
+            day["Date"] = init_date
+            li.append(day)
+            df = pd.concat(li, axis=0, ignore_index=True, sort=False)
+    return df
+    
+if os.path.exists('./master_list.csv'):
+    print("master list already exists")
+    df = pd.read_csv('./master_list.csv')
+    df = df.sort_values(by=['Date'], ascending=False)
+    if df['Date'].iloc[0] == date.today().strftime("%m-%d-%y%y"):
+        print("All up to date")
         pass
     else:
-        day = pd.read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports/{}.csv".format(x))
-        init_date = x
-        day["Date"] = init_date
-        df = df.append(day, sort=False)  
+        print("Adding new days")
+        df['Date'] = pd.to_datetime(df['Date'], format='%m-%d-%Y')
+        print("date changed to datetime")
+        start = pd.to_datetime(df['Date'].iloc[0], format='%m-%d-%Y')
+        today = datetime.datetime.today()
+        dt = today - start
+        date_list = [today - datetime.timedelta(days=x) for x in range(dt.days)]
+        date_list = [x.strftime("%m-%d-%y%y") for x in date_list]
+        print(date_list)
+        df['Date'] = df['Date'].dt.strftime("%m-%d-%y%y")
+        df = load_csv(date_list, df)
+        df.to_csv('master_list.csv')
+else:
+    print("building new master list")
+    df = pd.DataFrame()
+    start = date(2020, 1, 21)
+    today = date.today()
+    dt = today - start
+    date_list = [today - datetime.timedelta(days=x) for x in range(dt.days)]
+    date_list = [x.strftime("%m-%d-%y%y") for x in date_list]
+    print(date_list)
+    df = load_csv(date_list, df)
+    df.to_csv('master_list.csv')
 
 current_date = df.sort_values(by=['Date'], ascending=False)
 current_date = current_date['Date'].iloc[0]
