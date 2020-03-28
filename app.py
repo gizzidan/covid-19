@@ -2,6 +2,7 @@
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
+from dash.dependencies import Input, Output
 import pandas as pd
 import numpy as np
 import datetime
@@ -9,6 +10,7 @@ from datetime import date, timedelta
 import requests
 import os.path
 import plotly
+import plotly.express as px
 
 app = dash.Dash(__name__)
 app.title = 'COVID-19 NJ Dashboard'
@@ -74,8 +76,8 @@ if os.path.exists('./master_list.csv'):
         date_list = [x.strftime("%m-%d-%y%y") for x in date_list]
         print(date_list)
         df['Date'] = df['Date'].dt.strftime("%m-%d-%y%y")
-        df = load_csv(date_list, df)
-        df.to_csv('master_list.csv')
+        # df = load_csv(date_list, df)
+        # df.to_csv('master_list.csv')
 else:
     print("building new master list")
     df = pd.DataFrame()
@@ -97,12 +99,13 @@ prev_date = current_date - datetime.timedelta(days=1)
 current_date = current_date.strftime("%m-%d-%y%y")
 prev_date = prev_date.strftime("%m-%d-%y%y")
 
-prev_df = df[df["Date"].str.match(prev_date)].dropna(subset=['Province_State']).dropna(axis='columns')
-current_df = df[df["Date"].str.match(current_date)].dropna(subset=['Province_State']).dropna(axis='columns')
+prev_df = df[df["Date"].str.match(prev_date)].dropna(subset=['Province_State'])
+current_df = df[df["Date"].str.match(current_date)].dropna(subset=['Province_State'])
 
 # NJ
 prev_nj = prev_df[prev_df['Province_State'].str.match('New Jersey')]
 nj = current_df[current_df['Province_State'].str.match('New Jersey')]
+nj = nj.rename(columns = {'Admin2':'County'})
 
 total_confirmed = np.sum(nj["Confirmed"])
 total_deaths = np.sum(nj["Deaths"])
@@ -139,6 +142,28 @@ def color(pchange):
     else:
         color = 'white'
     return color
+
+all_nj = df.dropna(subset=['Province_State'])
+all_nj = all_nj[all_nj['Province_State'].str.match('New Jersey')]
+all_nj['Date'] = pd.to_datetime(all_nj['Date'], format='%m-%d-%Y')
+all_nj = all_nj.set_index('Date')
+all_nj['Year'] = all_nj.index.year
+all_nj['Month'] = all_nj.index.month
+all_nj['Weekday Name'] = all_nj.index.weekday_name
+
+nj = nj.sort_values('County', ascending=True)
+data=nj[['County', 'Confirmed', 'Deaths', 'Recovered', 'Active']]
+col_options = [
+    {'label': 'Confirmed Cases', 'value': 'Confirmed'},
+    {'label': 'Deaths', 'value': 'Deaths'},
+    {'label': 'Recovered', 'value': 'Recovered'},
+]
+
+fig = px.bar(data, x='County', y='Confirmed',
+    hover_data=['County', 'Confirmed'], color='Confirmed',
+    height=400)
+
+
 
 colors = {
     'background': '#111111',
@@ -229,8 +254,17 @@ app.layout = html.Div(children=[
             )
         ]
     ),
-
+    html.Div(className='section', children = [
+        html.H3('Compare metrics by County'),
+        dcc.Dropdown(id='x', options=col_options, value='Confirmed'),
+        dcc.Graph(id='graph', figure=px.bar(data))
+    ])
 ])
 
+@app.callback(Output('graph', 'figure'), [Input('x', 'value')])
+def cb(x):
+    return px.bar(data, y='County', x=x,
+             hover_data=['County', 'Confirmed', 'Deaths', 'Recovered'], color=x,
+             orientation='h', height=600).update_layout(uniformtext_minsize=8, uniformtext_mode='hide')
 if __name__ == '__main__':
     app.run_server(debug=True)

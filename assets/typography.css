@@ -61,3 +61,7 @@ h4 {
 .white {
     color: white;
 }
+
+.Select-menu-outer, .Select-input {
+    color: #131516;
+}

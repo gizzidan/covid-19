@@ -5,6 +5,7 @@
     display: grid;
     justify-content: center;
     margin-top: 20px;
+    margin-bottom: 20px;
     grid-gap: 20px;
     grid-template-columns: 1fr 1fr 1fr;
     /* Define Auto Row size */
