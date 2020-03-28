@@ -13,9 +13,8 @@ html, body {
 }
 
 body {
-    max-width: 1200px;
-    margin-left: 3rem;
-    margin-right: 3rem;
+    padding-left: 2rem;
+    padding-right: 2rem;
     background-color: #131516;
     color: #fff;
     @media screen and (max-width: 767px){
@@ -62,6 +61,7 @@ h4 {
     color: white;
 }
 
-.Select-menu-outer, .Select-input {
+.Select-menu-outer, .Select-value {
     color: #131516;
+    font-size: 1.5rem !important;
 }

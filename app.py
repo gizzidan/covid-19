@@ -30,9 +30,11 @@ app.index_string = '''
         {%app_entry%}
         <footer>
             <div class='footer'>
+            <p>
             Built by Dan Gizzi using Dash, a web application framework for Python. 
             <br/>
-            Data from COVID-19 Data Repository by Johns Hopkins CSSE.        
+            Data from COVID-19 Data Repository by Johns Hopkins CSSE.   
+            </p>     
             </div>
             {%config%}
             {%scripts%}
@@ -45,54 +47,53 @@ app.index_string = '''
 # master dataframe
 def load_csv(date_list, df):
     for x in date_list:
+        print(df)
         li = []
         li.append(df)
         request = requests.get("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports/{}.csv".format(x))
         if request.status_code == 404:
+            print('file does not exist yet')
+            print(df)
             pass
         else:
+            print('Adding new day')
             day = pd.read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports/{}.csv".format(x))
             init_date = x
             day["Date"] = init_date
             li.append(day)
             df = pd.concat(li, axis=0, ignore_index=True, sort=False)
+            df.to_csv('./master_list.csv', index=False)
     return df
     
 if os.path.exists('./master_list.csv'):
     print("master list already exists")
     df = pd.read_csv('./master_list.csv')
     df = df.sort_values(by=['Date'], ascending=False)
-    if df['Date'].iloc[0] == date.today().strftime("%m-%d-%y%y"):
-        print("All up to date")
-        pass
-    else:
-        print("Adding new days")
-        df['Date'] = pd.to_datetime(df['Date'], format='%m-%d-%Y')
-        print("date changed to datetime")
-        start = pd.to_datetime(df['Date'].iloc[0], format='%m-%d-%Y')
-        today = datetime.datetime.today()
-        dt = today - start
-        date_list = [today - datetime.timedelta(days=x) for x in range(dt.days)]
-        date_list = [x.strftime("%m-%d-%y%y") for x in date_list]
-        print(date_list)
-        df['Date'] = df['Date'].dt.strftime("%m-%d-%y%y")
-        # df = load_csv(date_list, df)
-        # df.to_csv('master_list.csv')
-else:
-    print("building new master list")
-    df = pd.DataFrame()
-    start = date(2020, 1, 21)
-    today = date.today()
+    print("Checking for new days")
+    start = pd.to_datetime(df['Date'].iloc[0], format='%m-%d-%Y')
+    today = datetime.datetime.today()
     dt = today - start
     date_list = [today - datetime.timedelta(days=x) for x in range(dt.days)]
     date_list = [x.strftime("%m-%d-%y%y") for x in date_list]
     print(date_list)
     df = load_csv(date_list, df)
-    df.to_csv('master_list.csv')
+    
+else:
+    print("building new master list")
+    df = pd.DataFrame()
+    start = date(2020, 1, 21)
+    today = date.today() 
+    dt = today - start
+    date_list = [today - datetime.timedelta(days=x) for x in range(dt.days)]
+    date_list = [x.strftime("%m-%d-%y%y") for x in date_list]
+    print(date_list)
+    df = load_csv(date_list, df)
+    df.to_csv('./master_list.csv', index=False)
+
+
 
 current_date = df.sort_values(by=['Date'], ascending=False)
 current_date = current_date['Date'].iloc[0]
-
 current_date = datetime.datetime.strptime(current_date,'%m-%d-%Y')
 prev_date = current_date - datetime.timedelta(days=1)
 
@@ -152,18 +153,10 @@ all_nj['Month'] = all_nj.index.month
 all_nj['Weekday Name'] = all_nj.index.weekday_name
 
 nj = nj.sort_values('County', ascending=True)
-data=nj[['County', 'Confirmed', 'Deaths', 'Recovered', 'Active']]
-col_options = [
-    {'label': 'Confirmed Cases', 'value': 'Confirmed'},
-    {'label': 'Deaths', 'value': 'Deaths'},
-    {'label': 'Recovered', 'value': 'Recovered'},
-]
+data=nj[['County', 'Confirmed', 'Deaths', 'Recovered', 'Active']].reset_index()
 
-fig = px.bar(data, x='County', y='Confirmed',
-    hover_data=['County', 'Confirmed'], color='Confirmed',
-    height=400)
-
-
+all_nj_daily = all_nj.groupby(['Date']).agg(['sum']).reset_index()
+all_nj_daily = all_nj_daily[['FIPS','Date', 'Confirmed', 'Deaths', 'Recovered', 'Active']]
 
 colors = {
     'background': '#111111',
@@ -255,16 +248,32 @@ app.layout = html.Div(children=[
         ]
     ),
     html.Div(className='section', children = [
+        html.H3('Confirmed Cases Time Series'),
+        dcc.Graph(figure=px.line(all_nj_daily, x="Date", y='Confirmed')),
+    ]),
+    html.Div(className='section', children = [
         html.H3('Compare metrics by County'),
-        dcc.Dropdown(id='x', options=col_options, value='Confirmed'),
+        dcc.Dropdown(
+            id='x', 
+            options = [
+            {'label': 'Confirmed Cases', 'value': 'Confirmed'},
+            {'label': 'Deaths', 'value': 'Deaths'},
+            {'label': 'Recovered', 'value': 'Recovered'},
+        ], 
+        value='Confirmed',
+        searchable = False,
+        clearable = False
+    ),
         dcc.Graph(id='graph', figure=px.bar(data))
     ])
 ])
 
-@app.callback(Output('graph', 'figure'), [Input('x', 'value')])
+@app.callback(
+    Output('graph', 'figure'), 
+    [Input('x', 'value')])
 def cb(x):
-    return px.bar(data, y='County', x=x,
-             hover_data=['County', 'Confirmed', 'Deaths', 'Recovered'], color=x,
-             orientation='h', height=600).update_layout(uniformtext_minsize=8, uniformtext_mode='hide')
+    return px.bar(data, y='County', x=x, color=x,
+        hover_data=['County', 'Confirmed', 'Deaths', 'Recovered'],
+        orientation='h', height=600).update_layout(uniformtext_minsize=8, uniformtext_mode='hide')
 if __name__ == '__main__':
     app.run_server(debug=True)

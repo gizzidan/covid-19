@@ -27,7 +27,9 @@
 
 
 .footer {
-    padding-top: 40px;
-    font-size: 1.6rem;
-    line-height: 1.4em
+    padding-top: 24px;
+}
+
+.section {
+    padding-bottom: 20px;
 }
