@@ -94,6 +94,7 @@ else:
 
 current_date = df.sort_values(by=['Date'], ascending=False)
 current_date = current_date['Date'].iloc[0]
+
 current_date = datetime.datetime.strptime(current_date,'%m-%d-%Y')
 prev_date = current_date - datetime.timedelta(days=1)
 
@@ -108,11 +109,15 @@ prev_nj = prev_df[prev_df['Province_State'].str.match('New Jersey')]
 nj = current_df[current_df['Province_State'].str.match('New Jersey')]
 nj = nj.rename(columns = {'Admin2':'County'})
 
-total_confirmed = np.sum(nj["Confirmed"])
-total_deaths = np.sum(nj["Deaths"])
-total_recovered = np.sum(nj["Recovered"])
-total_active = np.sum(nj["Active"])
+def make_metric(df, column):
+    metric = int(np.sum(df[column]))
+    metric = f"{metric:,}"
+    return metric
 
+total_confirmed = make_metric(nj, "Confirmed")
+total_deaths = make_metric(nj, "Deaths")
+total_recovered = make_metric(nj, "Recovered")
+total_active = make_metric(nj, "Active")
 
 def sign(metric):
     output = ''
@@ -166,7 +171,7 @@ colors = {
 
 
 
-app.layout = html.Div(children=[
+app.layout = html.Div(className='main-container', children=[
     html.H1(
         children='NJ COVID-19 Dashboard',
         style={
@@ -247,25 +252,28 @@ app.layout = html.Div(children=[
             )
         ]
     ),
-    html.Div(className='section', children = [
-        html.H3('Confirmed Cases Time Series'),
-        dcc.Graph(figure=px.line(all_nj_daily, x="Date", y='Confirmed')),
-    ]),
-    html.Div(className='section', children = [
-        html.H3('Compare metrics by County'),
-        dcc.Dropdown(
-            id='x', 
-            options = [
-            {'label': 'Confirmed Cases', 'value': 'Confirmed'},
-            {'label': 'Deaths', 'value': 'Deaths'},
-            {'label': 'Recovered', 'value': 'Recovered'},
-        ], 
-        value='Confirmed',
-        searchable = False,
-        clearable = False
-    ),
-        dcc.Graph(id='graph', figure=px.bar(data))
+    html.Div(className='grid-two', children = [
+        html.Div(className='section', children = [
+            html.H3('Confirmed Cases Time Series'),
+            dcc.Graph(figure=px.line(all_nj_daily, x="Date", y='Confirmed')),
+        ]),
+        html.Div(className='section', children = [
+            html.H3('Compare metrics by County'),
+            dcc.Dropdown(
+                id='x', 
+                options = [
+                {'label': 'Confirmed Cases', 'value': 'Confirmed'},
+                {'label': 'Deaths', 'value': 'Deaths'},
+                {'label': 'Recovered', 'value': 'Recovered'},
+            ], 
+            value='Confirmed',
+            searchable = False,
+            clearable = False
+         ),
+            dcc.Graph(id='graph', figure=px.bar(data))
+        ])
     ])
+
 ])
 
 @app.callback(
