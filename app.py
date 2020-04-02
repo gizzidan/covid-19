@@ -95,7 +95,7 @@ else:
 current_date = df.sort_values(by=['Date'], ascending=False)
 current_date = current_date['Date'].iloc[0]
 
-current_date = datetime.datetime.strptime(current_date,'%m-%d-%Y') - datetime.timedelta(days=1)
+current_date = datetime.datetime.strptime(current_date,'%m-%d-%Y')
 prev_date = current_date - datetime.timedelta(days=1)
 
 current_date = current_date.strftime("%m-%d-%y%y")
