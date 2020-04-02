@@ -67,7 +67,7 @@ def load_csv(date_list, df):
     
 if os.path.exists('./master_list.csv'):
     print("master list already exists")
-    df = pd.read_csv('./master_list.csv')
+    df = pd.read_csv('./master_list.csv',  index_col=None)
     df = df.sort_values(by=['Date'], ascending=False)
     print("Checking for new days")
     start = pd.to_datetime(df['Date'].iloc[0], format='%m-%d-%Y')
@@ -95,7 +95,7 @@ else:
 current_date = df.sort_values(by=['Date'], ascending=False)
 current_date = current_date['Date'].iloc[0]
 
-current_date = datetime.datetime.strptime(current_date,'%m-%d-%Y')
+current_date = datetime.datetime.strptime(current_date,'%m-%d-%Y') - datetime.timedelta(days=1)
 prev_date = current_date - datetime.timedelta(days=1)
 
 current_date = current_date.strftime("%m-%d-%y%y")
